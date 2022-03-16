@@ -37,7 +37,18 @@ for x in d_1.collect():
 # part D b
 
 # part D c
-d_3 = data.map(lambda x: (x[]))
+d_3 = data.map(lambda x: (x[0], 1))
+d_3 = d_3.reduceByKey(lambda x,y: x+y)
+
+print("Frequent hosts:\nhost       count")
+for x in d_3.collect():
+    print(x[0], "     ", x[1])
+
+# part D d
+print("Unique hosts:\n", d_3.count())
+
+# part D e
+
 
 print(data.take(3))
 
