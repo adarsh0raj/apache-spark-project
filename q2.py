@@ -1,4 +1,3 @@
-import csv
 import numpy as np
 import re
 import pandas as pd
@@ -9,9 +8,9 @@ def f(s):
     match = re.match(r'(.+) - - \[(\d{2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4})\] \"(\w+) .+\" (\d{3}) (\d+) .+', s)
     match2 = re.match(r'(.+) - - \[(\d{2}\/\w{3}\/\d{4}:\d{2}:\d{2}:\d{2} \+\d{4})\] \"(\w+) .+\" (\d{3}) (-) .+', s)
     if match:
-        data_arr = [match.group(1), match.group(2), match.group(3), match.group(4), match.group(5)]
+        data_arr = [match.group(1), match.group(2), match.group(3), int(match.group(4)), int(match.group(5))]
     if match2:
-        data_arr = [match2.group(1), match2.group(2), match2.group(3), match2.group(4), 0]
+        data_arr = [match2.group(1), match2.group(2), match2.group(3), int(match2.group(4)), 0]
         
     return data_arr
 
@@ -50,7 +49,7 @@ keys = d2.keys().collect()
 values = d2.values().collect()
 plt.pie(values, labels=keys, autopct='%1.1f%%', startangle=90)
 plt.savefig('pie_chart.png')
-plt.show()
+# plt.show()
 
 # part D c
 d_3 = data.map(lambda x: (x[0], 1))
@@ -65,8 +64,7 @@ print("Unique hosts:\n", d_3.count())
 
 # part D e
 date_dataset = data.map(lambda x: ((x[1][0:11], x[0]), 1))
-date_dataset = date_dataset.reduceByKey(lambda x,y: 0)
-date_dataset = date_dataset.map(lambda x: (x[0][0], 1))
+date_dataset = date_dataset.keys().map(lambda x: (x[0], 1))
 date_dataset = date_dataset.reduceByKey(lambda x,y: x+y).sortByKey()
 
 print("Unique hosts per day:\nday       hosts")
@@ -85,8 +83,56 @@ plt.xlabel('Day')
 plt.ylabel('Hosts Count')
 plt.title('No of unique hosts daily')
 plt.savefig('hosts_daily.png')
-plt.show()
+# plt.show()
 
-print(data.take(3))
+
+# part D g
+
+failure_data = data.filter(lambda x : 400 <= x[3] and x[3] < 600)
+failure_data = failure_data.map(lambda x: (x[0], 1))
+failure_data = failure_data.reduceByKey(lambda x,y: x+y).sortBy(lambda x: x[1], ascending=False)
+
+print("Failed HTTP Clients:")
+for x in failure_data.take(5):
+    print(x[0])
+
+
+# part D h
+
+my_data = data.filter(lambda x : x[1][0:11] == '22/Jan/2019')
+total_data = my_data.map(lambda x: (int(x[1][12:14]), 1))
+failure_data = my_data.filter(lambda x : 400 <= x[3]).map(lambda x: (int(x[1][12:14]), 1))
+
+total_data = total_data.reduceByKey(lambda x,y: x+y).sortByKey()
+failure_data = failure_data.reduceByKey(lambda x,y: x+y).sortByKey()
+
+plt.plot(total_data.keys().collect(), total_data.values().collect(), label='Total Requests')
+plt.plot(failure_data.keys().collect(), failure_data.values().collect(), label='Failed Requests')
+plt.legend()
+plt.xticks(np.arange(total_data.keys().min(), total_data.keys().max() + 1, 1))
+plt.savefig('total_failure.png')
+
+# plt.show()
+
+# part D i
+
+my_data = data.map(lambda x: ((x[1][0:11], x[1][12:14]), 1))
+my_data = my_data.reduceByKey(lambda x,y: x+y).map(lambda x: (x[0][0], (x[0][1], x[1])))
+my_data = my_data.reduceByKey(lambda x,y: x if x[1] > y[1] else y).sortByKey()
+
+print("Active Hours:")
+
+for x in my_data.collect():
+    print(x[0], "     ", x[1][0] + ":00")
+
+
+# part D j
+
+col = data.map(lambda x : x[4])
+
+print("Response Length Statistics:")
+print("Minimum length", col.min())
+print("Maximum length", col.max())
+print("Average length", col.mean())
 
 spark.stop()
