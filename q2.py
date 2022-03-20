@@ -1,7 +1,9 @@
+from datetime import date
 import numpy as np
 import re
 import pandas as pd
 from pyspark.sql import SparkSession
+import matplotlib.pyplot as plt
 
 def f(s):
     data_arr = []
@@ -30,32 +32,28 @@ print("Number of bad rows: ", orig_count - data.count())
 
 # part D a
 d_1 = data.map(lambda x: (x[3], 1))
-d_1 = d_1.reduceByKey(lambda x,y: x+y).sortByKey()
+d_1 = d_1.groupByKey().mapValues(len).sortByKey()
 
-print("HTTP status analysis:\nstatus     count")
+print("HTTP status analysis:\nstatus    count")
 for x in d_1.collect():
     print(x[0], "     ", x[1])
-    
+
 # part D b
 
 tots = d_1.values().reduce(lambda x,y: x+y)
-
 d2 = d_1.map(lambda x : (x[0], x[1] / tots))
 
-#matplotlib pie-chart of d2
-import matplotlib.pyplot as plt
-#pie-chart of d2
 keys = d2.keys().collect()
 values = d2.values().collect()
+plt.figure()
 plt.pie(values, labels=keys, autopct='%1.1f%%', startangle=90)
-plt.savefig('pie_chart.png')
-# plt.show()
+plt.savefig('http_status_analysis.png')
 
 # part D c
 d_3 = data.map(lambda x: (x[0], 1))
-d_3 = d_3.reduceByKey(lambda x,y: x+y)
+d_3 = d_3.groupByKey().mapValues(len)
 
-print("Frequent hosts:\nhost       count")
+print("Frequent hosts:\nhost        count")
 for x in d_3.collect():
     print(x[0], "     ", x[1])
 
@@ -63,21 +61,20 @@ for x in d_3.collect():
 print("Unique hosts:\n", d_3.count())
 
 # part D e
-date_dataset = data.map(lambda x: ((x[1][0:11], x[0]), 1))
-date_dataset = date_dataset.keys().map(lambda x: (x[0], 1))
-date_dataset = date_dataset.reduceByKey(lambda x,y: x+y).sortByKey()
+date_dataset = data.map(lambda x: (x[1][0:11], x[0]))
+date_dataset = date_dataset.groupByKey().map(lambda x: (x[0], len(set(x[1])))).sortByKey()
 
-print("Unique hosts per day:\nday       hosts")
+print("Unique hosts per day:\nday               hosts")
 
 for x in date_dataset.collect():
     print(x[0], "     ", x[1])
-
 
 # part D f
 
 x = date_dataset.keys().collect()
 y = date_dataset.values().collect()
 
+plt.figure()
 plt.plot(x, y)
 plt.xlabel('Day')
 plt.ylabel('Hosts Count')
@@ -106,6 +103,7 @@ failure_data = my_data.filter(lambda x : 400 <= x[3]).map(lambda x: (int(x[1][12
 total_data = total_data.reduceByKey(lambda x,y: x+y).sortByKey()
 failure_data = failure_data.reduceByKey(lambda x,y: x+y).sortByKey()
 
+plt.figure()
 plt.plot(total_data.keys().collect(), total_data.values().collect(), label='Total Requests')
 plt.plot(failure_data.keys().collect(), failure_data.values().collect(), label='Failed Requests')
 plt.legend()
